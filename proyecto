@@ -1,0 +1,333 @@
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
+# Instala e carga las bibliotecas necesarias
+install.packages("httr")
+install.packages("jsonlite")
+install.packages("plotly")
+install.packages("shiny")
+install.packages("shinydashboard")
+
+################################################################################################
+################################################ GET################################################
+################################################################################################
+library(httr)
+library(jsonlite)
+library(plotly)
+##############################################################################################
+######################################################################v
+##########################################################################
+library(shiny)
+library(shinydashboard)
+library(jsonlite)
+
+
+# Definir el cuerpo de la aplicación Shiny
+ui <- dashboardPage(
+  dashboardHeader(title = "Análisis de Costo de Servicio"),
+  dashboardSidebar(
+    numericInput("cantidadAceite", "Cantidad de Aceite", value = 6),
+    numericInput("kilometrajeActual", "Kilometraje Actual", value = 55000),
+    numericInput("costoAceite", "Costo de Aceite", value = 28),
+    actionButton("realizarPrediccion", "Realizar Predicción"),
+    hr(),
+    h4("Resultados de la Predicción:"),
+    textOutput("resultadoPrediccion")
+  ),
+  dashboardBody(
+    fluidRow(
+      box(
+        title = "Matriz de Correlación",
+        plotlyOutput("correlogramaPlot")
+      ),
+      box(
+        title = "Comparación de Datos y Predicciones",
+        plotlyOutput("comparacionPlot")
+      ),
+      box(
+        title = "Distribución de Cantidad de Aceite",
+        plotlyOutput("distCantidadAceite")
+      ),
+      box(
+        title = "Relación entre Costo de Servicio y Kilometraje Actual",
+        plotlyOutput("relacionCostoKilometraje")
+      )
+    )
+  )
+)
+
+# Definir la lógica de la aplicación Shiny
+server <- function(input, output) {
+  
+  #############################################
+  #############################################
+  ###############
+  ###############
+  ###############
+  ###############
+  # URL de la API
+  url <- "https://dockermicroservicio.azurewebsites.net/ventas"
+  
+  # Realiza la solicitud GET a la API
+  response <- GET(url)
+  
+  # Verifica si la solicitud fue exitosa (código de estado 200)
+  if (http_status(response)$category == "Success") {
+    # Convierte la respuesta a texto especificando la codificación UTF-8
+    data <- content(response, "text", encoding = "UTF-8")
+    
+    # Parsea el JSON
+    parsed_data <- fromJSON(data)
+    
+    # Convertir a data frame
+    df <- as.data.frame(parsed_data)
+    
+    # Imprimir el data frame
+    print(df)
+  } else {
+    # Maneja errores
+    print("Error en la solicitud a la API.")
+    print(http_status(response))
+  }
+  
+  
+  df<-as.data.frame(df)
+  ################################################################################################
+  ################################################################################################
+  ############################filtracion de data################################################
+  ################################################################################################
+  ################################################################################################
+  
+  str(df)
+  
+  
+  datos <- data.frame(df$anoVehiculo,df$cantidadAceite,df$kilometrajeActual,df$costoAceite,df$costoServicio
+  )
+  ################################################################################################
+  ################################################################################################
+  ############################Matriz correlograma################################################
+  ################################################################################################
+  ################################################################################################
+  
+  # Crear una matriz de correlograma
+  cor_matrix <- cor(datos)
+  
+  # Obtener texto para la matriz
+  cor_text <- format(cor_matrix, nsmall = 2)
+  
+  # Crear la matriz de correlograma en Plotly con mejoras visuales
+  plot_ly(
+    x = colnames(cor_matrix),
+    y = colnames(cor_matrix),
+    z = cor_matrix,
+    type = "heatmap",
+    colorscale = "Viridis",
+    colorbar = list(title = "Correlation"),
+    text = cor_text,
+    hoverinfo = "text"
+  ) %>%
+    layout(
+      title = "Matriz de Correlograma con Valores Numéricos",
+      xaxis = list(tickangle = -45),
+      yaxis = list(tickangle = 45),
+      margin = list(l = 150, r = 150, b = 150, t = 100),
+      font = list(size = 10),
+      showlegend = FALSE
+    )
+  
+  
+  
+  
+  
+  ################################################################################################
+  ################################################################################################
+  ############################ MODELO ################################################
+  ################################################################################################
+  #####################################################################################
+  
+  
+  
+  
+  modelo_final <- lm(formula = datos$df.costoServicio~ datos$df.cantidadAceite + datos$df.kilometrajeActual + datos$df.costoAceite)
+  
+  summary(modelo_final)
+  
+  ####################################################################
+  ####################################################################
+  ####################pronosticar un valor
+  ####################################################################
+  ####################################################################
+  # Observaciones para predecir
+  # Coeficientes del modelo
+  intercepto <- -26.60
+  coef_cantidad_aceite <- -0.1568
+  coef_kilometraje_actual <- 0.0001502
+  coef_costo_aceite <- 4.011
+  
+  # Nuevos valores
+  nueva_cantidad_aceite <- 6
+  nuevo_kilometraje_actual <- 55000
+  nuevo_costo_aceite <- 28
+  
+  # Calcula la predicción
+  prediccion <- intercepto + coef_cantidad_aceite * nueva_cantidad_aceite +
+    coef_kilometraje_actual * nuevo_kilometraje_actual +
+    coef_costo_aceite * nuevo_costo_aceite
+  
+  # Imprime la predicción
+  print(prediccion)
+  
+  
+  ####################################################################
+  ####################################################################
+  ####################################################################
+  # Crear correctamente el marco de datos para la predicción
+  nuevos_datos <- data.frame(
+    df.anoVehiculo = c(2025),  # Reemplaza con tu valor
+    df.cantidadAceite = c(6),  # Reemplaza con tu valor
+    df.kilometrajeActual = c(55000),  # Reemplaza con tu valor
+    df.costoAceite = c(28)  # Reemplaza con tu valor
+  )
+  
+  # Realizar la predicción
+  prediccion <- predict(modelo_final, nuevos_datos)
+  
+  # Imprimir la predicción
+  print(prediccion)
+  
+  
+  ####################################################################
+  
+  ####################################################################
+  
+  # Realizar la predicción para todos los datos
+  datos$prediccion <- predict(modelo_final, datos)
+  
+  # Crear la gráfica interactiva con Plotly
+  grafica_interactiva <- plot_ly(datos, x = ~df.costoServicio, y = ~prediccion, type = 'scatter', mode = 'markers',
+                                 text = ~paste("Predicción: $", round(prediccion, 2), "<br>Real: $", df.costoServicio),
+                                 marker = list(color = ~abs(df.costoServicio - prediccion)),
+                                 colors = 'Blues', opacity = 0.7) %>%
+    add_trace(x = ~df.costoServicio, y = ~df.costoServicio, type = 'scatter', mode = 'lines', line = list(color = 'red')) %>%
+    layout(
+      title = "Comparación entre Costo de Servicio Real y Predicción",
+      xaxis = list(title = "Costo de Servicio Real"),
+      yaxis = list(title = "Costo de Servicio Predicción"),
+      showlegend = FALSE
+    ) %>%
+    add_annotations(
+      x = 100, y = 150,
+      text = paste("Ecuación de la línea de ajuste: <br>",
+                   "y = ", round(coef(modelo_final)[1], 3), " + ",
+                   round(coef(modelo_final)[2], 3), " * cantidadAceite + ",
+                   round(coef(modelo_final)[3], 3), " * kilometrajeActual + ",
+                   round(coef(modelo_final)[4], 3), " * costoAceite"),
+      showarrow = FALSE,
+      xref = "paper",
+      yref = "paper",
+      font = list(size = 12),
+      align = "left"
+    )
+  
+  # Mostrar la gráfica
+  grafica_interactiva
+  
+  
+  
+  
+  ###############
+  ###############
+  ###############
+  ###############
+  # Crear la matriz de correlograma
+  output$correlogramaPlot <- renderPlotly({
+    cor_matrix <- cor(datos)
+    cor_text <- format(cor_matrix, nsmall = 2)
+    
+    plot_ly(
+      x = colnames(cor_matrix),
+      y = colnames(cor_matrix),
+      z = cor_matrix,
+      type = "heatmap",
+      colorscale = "Viridis",
+      colorbar = list(title = "Correlation"),
+      text = cor_text,
+      hoverinfo = "text"
+    ) %>%
+      layout(
+        title = "Matriz de Correlograma con Valores Numéricos",
+        xaxis = list(tickangle = -45),
+        yaxis = list(tickangle = 45),
+        margin = list(l = 150, r = 150, b = 150, t = 100),
+        font = list(size = 10),
+        showlegend = FALSE
+      )
+  })
+  
+  # Realizar la predicción y mostrar resultados
+  observeEvent(input$realizarPrediccion, {
+    # Coeficientes del modelo
+    intercepto <- -26.60
+    coef_cantidad_aceite <- -0.1568
+    coef_kilometraje_actual <- 0.0001502
+    coef_costo_aceite <- 4.011
+    
+    # Nuevos valores
+    nueva_cantidad_aceite <- input$cantidadAceite
+    nuevo_kilometraje_actual <- input$kilometrajeActual
+    nuevo_costo_aceite <- input$costoAceite
+    
+    # Calcular la predicción
+    prediccion <- intercepto + coef_cantidad_aceite * nueva_cantidad_aceite +
+      coef_kilometraje_actual * nuevo_kilometraje_actual +
+      coef_costo_aceite * nuevo_costo_aceite
+    
+    # Imprimir la predicción
+    output$resultadoPrediccion <- renderText({
+      paste("Predicción de Costo de Servicio: $", round(prediccion, 2))
+    })
+    
+    # Crear la gráfica de comparación
+    output$comparacionPlot <- renderPlotly({
+      grafica_interactiva
+    })
+  })
+  
+  # Gráfico de barras para la distribución de Cantidad de Aceite
+  output$distCantidadAceite <- renderPlotly({
+    plot_ly(
+      data.frame(cantidadAceite = datos$df.cantidadAceite),
+      x = ~cantidadAceite,
+      type = "histogram",
+      marker = list(color = "#636EFA"),
+      opacity = 0.7
+    ) %>%
+      layout(
+        title = "Distribución de Cantidad de Aceite",
+        xaxis = list(title = "Cantidad de Aceite"),
+        yaxis = list(title = "Frecuencia"),
+        showlegend = FALSE
+      )
+  })
+  
+  # Gráfico de dispersión para la relación entre Costo de Servicio y Kilometraje Actual
+  output$relacionCostoKilometraje <- renderPlotly({
+    plot_ly(
+      datos,
+      x = ~df.kilometrajeActual,
+      y = ~df.costoServicio,
+      type = 'scatter',
+      mode = 'markers',
+      marker = list(color = 'blue', size = 8, line = list(width = 1, color = 'black')),
+      opacity = 0.7
+    ) %>%
+      layout(
+        title = "Relación entre Costo de Servicio y Kilometraje Actual",
+        xaxis = list(title = "Kilometraje Actual"),
+        yaxis = list(title = "Costo de Servicio"),
+        showlegend = FALSE
+      )
+  })
+}
+
+# Ejecutar la aplicación Shiny
+shinyApp(ui, server)
