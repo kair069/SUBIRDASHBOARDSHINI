@@ -1,0 +1,11 @@
+install.packages('rsconnect')
+
+rsconnect::setAccountInfo(name='psommj-alex0sandro-cayllahua0chire',
+                          token='124EA398D58404B4CA746E277CB85252',
+                          secret='0hpbvPP1p0/LIW4VwwwvU0Z1TeTwoUYsMAa12Wc/')
+
+library(rsconnect)
+#rsconnect::deployApp("C:/carpeta")
+#rsconnect::deployApp("C:/carpetita")
+rsconnect::deployApp("C:/carpetina")
+getwd()
